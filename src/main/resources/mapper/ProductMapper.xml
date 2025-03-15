@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.onlinestore.mapper.ProductMapper">
+    <insert id="insertProduct" parameterType="com.example.onlinestore.model.Product">
+        INSERT INTO products (name, category, price, created_at, updated_at)
+        VALUES (#{name}, #{category}, #{price}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="findWithPagination" resultType="com.example.onlinestore.model.Product">
+        SELECT id, name, category, price, created_at, updated_at
+        FROM products
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countTotal" resultType="long">
+        SELECT COUNT(*)
+        FROM products
+        <where>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="findAll" resultType="com.example.onlinestore.model.Product">
+        SELECT id, name, category, price, created_at, updated_at
+        FROM products
+        ORDER BY created_at DESC
+    </select>
+</mapper> 
