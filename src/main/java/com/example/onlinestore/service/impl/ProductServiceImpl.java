@@ -30,6 +30,18 @@ public class ProductServiceImpl implements ProductService {
      */
     private Map<Long, Product> producteCache = new HashMap<>();
 
+    /**
+     * Creates a new product based on the provided request.
+     * <p>
+     * This method initializes a product using the details from the request (name, category, and price),
+     * sets the creation and update timestamps, and persists the product via a database mapper.
+     * It also manages a product cache by removing the oldest product if the cache exceeds 999 items, 
+     * and then adds the newly created product to the cache.
+     * </p>
+     *
+     * @param request the product creation request containing the required product details
+     * @return the created product
+     */
     @Override
     @Transactional
     public Product createProduct(CreateProductRequest request) {
@@ -56,6 +68,17 @@ public class ProductServiceImpl implements ProductService {
         return product;
     }
 
+    /**
+     * Retrieves a paginated list of products based on the specified page request.
+     *
+     * <p>This method uses an in-memory cache to serve product data. If the cache is empty, it is populated from the database with
+     * up to 999 products. When the cache has fewer than 1000 products, the method returns a paginated list from the cache,
+     * optionally attempting an exact product name match if a name is provided. If the cache capacity is exceeded, a paginated
+     * database query is executed to retrieve the products and their total count.</p>
+     *
+     * @param request the pagination request containing the page number, page size, and an optional product name for filtering
+     * @return a PageResponse containing the list of products along with pagination metadata
+     */
     @Override
     public PageResponse<Product> listProducts(ProductPageRequest request) {
         logger.info("开始查询商品列表，页码：{}，每页大小：{}，商品名称：{}", 
