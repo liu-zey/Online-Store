@@ -6,6 +6,18 @@ import com.example.onlinestore.dto.ProductPageRequest;
 import com.example.onlinestore.model.Product;
 
 public interface ProductService {
-    Product createProduct(CreateProductRequest request);
-    PageResponse<Product> listProducts(ProductPageRequest request);
+    /**
+ * Creates a new product based on the provided creation request.
+ *
+ * @param request the product creation request containing the necessary product details
+ * @return the newly created product
+ */
+Product createProduct(CreateProductRequest request);
+    /**
+ * Retrieves a paginated list of products based on the specified criteria.
+ *
+ * @param request the product page request containing pagination and filter parameters
+ * @return a paginated response with the list of products and pagination details
+ */
+PageResponse<Product> listProducts(ProductPageRequest request);
 } 

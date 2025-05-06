@@ -28,10 +28,15 @@ public class ProductController {
     private MessageSource messageSource;
 
     /**
-     * 创建商品
-     * 
-     * @param request 创建商品请求
-     * @return 创建的商品信息
+     * Creates a new product from the provided request.
+     *
+     * <p>This endpoint processes a validated product creation request and returns an HTTP OK response with
+     * the created product if successful. If the input is invalid or an illegal argument is encountered, it returns
+     * a 400 Bad Request response. For unexpected errors, it returns a 500 Internal Server Error with an internationalized
+     * error message. Access to this operation is restricted to users with admin privileges.</p>
+     *
+     * @param request the validated product creation request details
+     * @return a ResponseEntity containing the created product or an error response
      */
     @PostMapping
     @RequireAdmin
@@ -54,10 +59,16 @@ public class ProductController {
     }
 
     /**
-     * 获取商品列表
-     * 
-     * @param request 分页查询参数
-     * @return 商品列表分页数据
+     * Retrieves a paginated list of products.
+     *
+     * <p>
+     * Handles HTTP GET requests and uses pagination criteria from the provided request to query the product list.
+     * Returns a successful response with the paginated results on a valid request, a 400 Bad Request for invalid input,
+     * or a 500 Internal Server Error for unexpected issues.
+     * </p>
+     *
+     * @param request the pagination and filtering criteria for querying products
+     * @return a ResponseEntity containing the paginated product list or an error response
      */
     @GetMapping
     @ValidateParams
