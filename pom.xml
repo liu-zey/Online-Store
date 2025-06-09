@@ -164,6 +164,11 @@
                     <target>${java.version}</target>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M5</version> <!-- Use a JUnit 5 compatible version -->
+            </plugin>
         </plugins>
     </build>
 </project>
