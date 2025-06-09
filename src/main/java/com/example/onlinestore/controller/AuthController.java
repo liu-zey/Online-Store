@@ -10,9 +10,12 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -41,5 +44,16 @@ public class AuthController {
             return ResponseEntity.internalServerError().body(
                 messageSource.getMessage("error.system.internal", null, LocaleContextHolder.getLocale()));
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestHeader(name = "X-Token", required = false) String token) {
+        if (token != null && !token.isEmpty()) {
+            userService.logout(token);
+            logger.info("用户登出成功, token: {}", token);
+        } else {
+            logger.info("用户尝试登出，但未提供token或token为空");
+        }
+        return ResponseEntity.ok().build();
     }
 } 

@@ -11,4 +11,5 @@ public interface UserService {
     LoginResponse login(LoginRequest request);
     PageResponse<UserVO> listUsers(UserPageRequest request);
     User getUserByToken(String token);
+    void logout(String token);
 } 

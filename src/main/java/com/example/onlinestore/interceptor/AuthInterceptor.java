@@ -1,6 +1,7 @@
 package com.example.onlinestore.interceptor;
 
 import com.example.onlinestore.context.UserContext;
+import com.example.onlinestore.exception.UnauthorizedException; // Added import
 import com.example.onlinestore.model.User;
 import com.example.onlinestore.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,19 +24,17 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String token = request.getHeader("X-Token");
-        if (token == null) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write(messageSource.getMessage(
-                "error.unauthorized", null, LocaleContextHolder.getLocale()));
-            return false;
+        if (token == null || token.trim().isEmpty()) { // Also check for empty token
+            // Get localized message for missing token
+            String message = messageSource.getMessage("error.auth.missingToken", null, LocaleContextHolder.getLocale());
+            throw new UnauthorizedException(message);
         }
 
         User user = userService.getUserByToken(token);
         if (user == null) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write(messageSource.getMessage(
-                "error.unauthorized", null, LocaleContextHolder.getLocale()));
-            return false;
+            // Get localized message for invalid token
+            String message = messageSource.getMessage("error.auth.invalidToken", null, LocaleContextHolder.getLocale());
+            throw new UnauthorizedException(message);
         }
 
         UserContext.setCurrentUser(user);

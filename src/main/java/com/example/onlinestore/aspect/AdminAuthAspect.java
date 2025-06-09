@@ -4,12 +4,15 @@ import com.example.onlinestore.context.UserContext;
 import com.example.onlinestore.model.User;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment; // Added import
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+// Removed @Value import
 import org.springframework.stereotype.Component;
 
 /**
@@ -40,11 +43,14 @@ import org.springframework.stereotype.Component;
 public class AdminAuthAspect {
     private static final Logger logger = LoggerFactory.getLogger(AdminAuthAspect.class);
 
-    @Value("${admin.auth.username}")
-    protected String adminUsername;
+    private final MessageSource messageSource;
+    private final Environment environment; // Added Environment field
 
-    @Autowired
-    private MessageSource messageSource;
+    @Autowired // Constructor injection
+    public AdminAuthAspect(MessageSource messageSource, Environment environment) {
+        this.messageSource = messageSource;
+        this.environment = environment;
+    }
 
     /**
      * 检查当前用户是否具有管理员权限
@@ -54,13 +60,15 @@ public class AdminAuthAspect {
     @Before("@annotation(com.example.onlinestore.annotation.RequireAdmin)")
     public void checkAdminAuth() {
         User currentUser = UserContext.getCurrentUser();
+        String adminUsername = environment.getProperty("admin.auth.username"); // Get from Environment
+
         if (currentUser == null) {
             logger.warn("访问被拒绝：未登录用户尝试访问管理员接口");
             throw new IllegalArgumentException(messageSource.getMessage(
                 "error.access.denied", null, LocaleContextHolder.getLocale()));
         }
         
-        if (!adminUsername.equals(currentUser.getUsername())) {
+        if (!currentUser.getUsername().equals(adminUsername)) { // Check against username from environment
             logger.warn("访问被拒绝：非管理员用户 {} 尝试访问管理员接口", currentUser.getUsername());
             throw new IllegalArgumentException(messageSource.getMessage(
                 "error.access.denied", null, LocaleContextHolder.getLocale()));

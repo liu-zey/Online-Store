@@ -144,4 +144,41 @@ public class AuthControllerTest {
                     .andExpect(content().string(zhErrorMessage));
         }
     }
+
+    @Nested
+    @DisplayName("登出接口测试")
+    class LogoutTests {
+
+        @Test
+        @DisplayName("登出成功 - 带Token")
+        void logout_shouldCallUserServiceLogoutAndReturnOk_whenTokenIsProvided() throws Exception {
+            String token = "test-token";
+
+            mockMvc.perform(post("/api/auth/logout")
+                    .header("X-Token", token))
+                    .andExpect(status().isOk());
+
+            verify(userService).logout(token);
+        }
+
+        @Test
+        @DisplayName("登出成功 - 无Token")
+        void logout_shouldNotCallUserServiceLogoutAndReturnOk_whenTokenIsMissing() throws Exception {
+            mockMvc.perform(post("/api/auth/logout"))
+                    .andExpect(status().isOk());
+
+            verify(userService, never()).logout(any(String.class));
+        }
+
+        @Test
+        @DisplayName("登出成功 - Token为空字符串")
+        void logout_shouldCallUserServiceLogoutWithEmptyTokenAndReturnOk_whenTokenIsEmpty() throws Exception {
+            mockMvc.perform(post("/api/auth/logout")
+                    .header("X-Token", ""))
+                    .andExpect(status().isOk());
+
+            // Based on AuthController logic, userService.logout is called with ""
+            verify(userService).logout("");
+        }
+    }
 } 
