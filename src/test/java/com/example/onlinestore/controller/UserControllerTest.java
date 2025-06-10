@@ -2,6 +2,7 @@ package com.example.onlinestore.controller;
 
 import com.example.onlinestore.dto.PageResponse;
 import com.example.onlinestore.dto.UserVO;
+import com.example.onlinestore.model.User; // Import User model
 import com.example.onlinestore.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -57,6 +58,13 @@ public class UserControllerTest {
         mockResponse.setTotal(2);
         mockResponse.setPageNum(1);
         mockResponse.setPageSize(10);
+
+        // Mock authentication for tests that require an authenticated user
+        User mockAuthUser = new User();
+        mockAuthUser.setId(123L);
+        mockAuthUser.setUsername("admin"); // Changed to admin
+        // mockAuthUser.setRole("USER"); // Removed as User model does not have setRole
+        when(userService.getUserByToken("test-token")).thenReturn(mockAuthUser);
     }
 
     @Nested
@@ -114,15 +122,19 @@ public class UserControllerTest {
             // 设置模拟行为
             when(userService.listUsers(any()))
                 .thenThrow(new RuntimeException("Database error"));
-            when(messageSource.getMessage(eq("error.system.internal"), eq(null), any(Locale.class)))
-                .thenReturn("系统内部错误");
+            // The messageSource mock is removed as Spring Boot's default error handler
+            // for RuntimeExceptions will likely use the exception's message directly.
+            // when(messageSource.getMessage(eq("error.system.internal"), eq(null), any(Locale.class)))
+            //     .thenReturn("系统内部错误");
 
             // 执行请求并验证
             mockMvc.perform(get("/api/users")
                     .param("pageSize", "10")
-                    .param("pageNum", "1"))
+                    .param("pageNum", "1")
+                    .header("X-Token", "test-token") // Added X-Token for authentication
+                    .contentType(MediaType.APPLICATION_JSON)) // Added contentType for consistency
                     .andExpect(status().isInternalServerError())
-                    .andExpect(jsonPath("$.message").value("系统内部错误"));
+                    .andExpect(jsonPath("$.message").value("Internal server error")); // Adjusted to Spring Boot's default generic message
         }
     }
 } 

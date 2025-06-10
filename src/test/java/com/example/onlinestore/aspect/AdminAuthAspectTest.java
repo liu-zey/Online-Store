@@ -37,8 +37,8 @@ public class AdminAuthAspectTest {
     @BeforeEach
     void setUp() {
         adminAuthAspect.adminUsername = ADMIN_USERNAME;
-        when(messageSource.getMessage(eq(ERROR_ACCESS_DENIED), any(), eq(LocaleContextHolder.getLocale())))
-            .thenReturn(ACCESS_DENIED_MESSAGE);
+        // when(messageSource.getMessage(eq(ERROR_ACCESS_DENIED), any(), eq(LocaleContextHolder.getLocale())))
+        //     .thenReturn(ACCESS_DENIED_MESSAGE); // Moved to specific tests
     }
 
     @AfterEach
@@ -64,6 +64,8 @@ public class AdminAuthAspectTest {
         @Test
         @DisplayName("非管理员访问失败")
         void whenUserIsNotAdmin_thenThrowException() {
+            when(messageSource.getMessage(eq(ERROR_ACCESS_DENIED), any(), eq(LocaleContextHolder.getLocale())))
+                .thenReturn(ACCESS_DENIED_MESSAGE);
             // 准备测试数据
             User normalUser = new User();
             normalUser.setUsername("user");
@@ -86,6 +88,8 @@ public class AdminAuthAspectTest {
         @Test
         @DisplayName("未登录用户访问失败")
         void whenUserIsNull_thenThrowException() {
+            when(messageSource.getMessage(eq(ERROR_ACCESS_DENIED), any(), eq(LocaleContextHolder.getLocale())))
+                .thenReturn(ACCESS_DENIED_MESSAGE);
             // 准备测试数据
             UserContext.setCurrentUser(null);
 
