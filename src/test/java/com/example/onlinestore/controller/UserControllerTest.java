@@ -1,5 +1,6 @@
 package com.example.onlinestore.controller;
 
+import com.example.onlinestore.model.User;
 import com.example.onlinestore.dto.PageResponse;
 import com.example.onlinestore.dto.UserVO;
 import com.example.onlinestore.service.UserService;
@@ -12,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -40,9 +42,15 @@ public class UserControllerTest {
     private MessageSource messageSource;
 
     private PageResponse<UserVO> mockResponse;
+    private User adminUser;
 
     @BeforeEach
     void setUp() {
+        // 准备管理员用户数据
+        adminUser = new User();
+        adminUser.setId(0L); // Or any appropriate ID for an admin
+        adminUser.setUsername("admin"); // Must match adminUsername in AdminAuthAspect
+
         // 准备测试数据
         UserVO user1 = new UserVO();
         user1.setId(1L);
@@ -66,6 +74,7 @@ public class UserControllerTest {
         @DisplayName("成功获取用户列表")
         void whenListUsers_thenReturnSuccess() throws Exception {
             // 设置 mock 行为
+            when(userService.getUserByToken(eq("test-token"))).thenReturn(adminUser);
             when(userService.listUsers(any())).thenReturn(mockResponse);
 
             // 执行测试
@@ -89,6 +98,7 @@ public class UserControllerTest {
         @Test
         @DisplayName("页大小超过限制")
         void whenPageSizeExceedsLimit_thenReturnBadRequest() throws Exception {
+            when(userService.getUserByToken(eq("test-token"))).thenReturn(adminUser);
             mockMvc.perform(get("/api/users")
                     .param("pageNum", "1")
                     .param("pageSize", "101")
@@ -100,6 +110,7 @@ public class UserControllerTest {
         @Test
         @DisplayName("页码无效")
         void whenPageNumberIsInvalid_thenReturnBadRequest() throws Exception {
+            when(userService.getUserByToken(eq("test-token"))).thenReturn(adminUser);
             mockMvc.perform(get("/api/users")
                     .param("pageNum", "0")
                     .param("pageSize", "10")
@@ -112,15 +123,17 @@ public class UserControllerTest {
         @DisplayName("数据库错误")
         void whenDatabaseError_thenReturnInternalError() throws Exception {
             // 设置模拟行为
+            when(userService.getUserByToken(eq("test-token"))).thenReturn(adminUser);
             when(userService.listUsers(any()))
                 .thenThrow(new RuntimeException("Database error"));
-            when(messageSource.getMessage(eq("error.system.internal"), eq(null), any(Locale.class)))
-                .thenReturn("系统内部错误");
 
             // 执行请求并验证
             mockMvc.perform(get("/api/users")
                     .param("pageSize", "10")
-                    .param("pageNum", "1"))
+                    .param("pageNum", "1")
+                    .header("X-Token", "test-token")
+                    .header("Accept-Language", "zh-CN") // Specify locale via header
+                    .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.message").value("系统内部错误"));
         }

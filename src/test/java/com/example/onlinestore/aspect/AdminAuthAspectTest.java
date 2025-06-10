@@ -37,8 +37,6 @@ public class AdminAuthAspectTest {
     @BeforeEach
     void setUp() {
         adminAuthAspect.adminUsername = ADMIN_USERNAME;
-        when(messageSource.getMessage(eq(ERROR_ACCESS_DENIED), any(), eq(LocaleContextHolder.getLocale())))
-            .thenReturn(ACCESS_DENIED_MESSAGE);
     }
 
     @AfterEach
@@ -69,6 +67,10 @@ public class AdminAuthAspectTest {
             normalUser.setUsername("user");
             UserContext.setCurrentUser(normalUser);
 
+            // 准备 mock
+            when(messageSource.getMessage(eq(ERROR_ACCESS_DENIED), any(), eq(LocaleContextHolder.getLocale())))
+                .thenReturn(ACCESS_DENIED_MESSAGE);
+
             // 执行测试
             IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
@@ -88,6 +90,10 @@ public class AdminAuthAspectTest {
         void whenUserIsNull_thenThrowException() {
             // 准备测试数据
             UserContext.setCurrentUser(null);
+
+            // 准备 mock
+            when(messageSource.getMessage(eq(ERROR_ACCESS_DENIED), any(), eq(LocaleContextHolder.getLocale())))
+                .thenReturn(ACCESS_DENIED_MESSAGE);
 
             // 执行测试
             IllegalArgumentException exception = assertThrows(
