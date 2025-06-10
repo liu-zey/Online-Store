@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -64,13 +65,17 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private MessageSource messageSource;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request) {
         // 先检查是否是管理员用户
         if (adminUsername.equals(request.getUsername())) {
             // 如果是管理员，验证密码
-            if (adminPassword.equals(request.getPassword())) {
+            // Ensure adminPassword from properties is a BCrypt hash
+            if (passwordEncoder.matches(request.getPassword(), adminPassword)) {
                 logger.info("管理员快速登录");
                 return createLoginResponse(request.getUsername());
             } else {

@@ -67,7 +67,15 @@ public class ValidationAspect {
                             LocaleContextHolder.getLocale()))
                         .collect(Collectors.joining(", "));
                     
-                    logger.warn("参数验证失败: {}", errorMessages);
+                    // Enhanced logging with field paths and messages
+                    String detailedErrorMessagesForLog = violations.stream()
+                        .map(violation -> String.format("Field '%s': %s",
+                                violation.getPropertyPath().toString(),
+                                messageSource.getMessage(violation.getMessage(), null, LocaleContextHolder.getLocale())))
+                        .collect(Collectors.joining("; "));
+                    logger.warn("Parameter validation failed for method {}: [{}]", joinPoint.getSignature().toShortString(), detailedErrorMessagesForLog);
+
+                    // The HTTP response body can remain as just the messages
                     return ResponseEntity.badRequest().body(errorMessages);
                 }
             }
