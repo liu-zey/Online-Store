@@ -46,3 +46,9 @@ admin:
   auth:
     username: admin
     password: password
+
+# Configuration for the GitHub App Service
+github:
+  app:
+    service:
+      url: http://localhost:8081/webhook/new-product
