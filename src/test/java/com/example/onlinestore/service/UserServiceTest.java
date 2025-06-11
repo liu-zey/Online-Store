@@ -19,7 +19,20 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+
+// Add these imports to UserServiceTest.java
+import com.example.onlinestore.dto.PageResponse;
+import com.example.onlinestore.dto.UserPageRequest;
+import com.example.onlinestore.dto.UserVO;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -249,4 +262,149 @@ public class UserServiceTest {
         verify(valueOperations, never()).set(anyString(), anyString(), anyLong(), any());
         verify(restTemplate).postForObject(eq(USER_SERVICE_BASE_URL + "/auth"), any(), eq(Boolean.class));
     }
+
+    // --- Tests for listUsers ---
+    @Test
+    void listUsers_whenNoUsers_shouldReturnEmptyPage() {
+        UserPageRequest request = new UserPageRequest();
+        request.setPageNum(1);
+        request.setPageSize(10);
+
+        when(userMapper.findAllWithPagination(0, 10)).thenReturn(Collections.emptyList());
+        when(userMapper.countTotal()).thenReturn(0L);
+
+        PageResponse<UserVO> response = userService.listUsers(request);
+
+        assertNotNull(response);
+        assertTrue(response.getRecords().isEmpty());
+        assertEquals(0, response.getTotal());
+        assertEquals(1, response.getPageNum());
+        assertEquals(10, response.getPageSize());
+
+        verify(userMapper).findAllWithPagination(0, 10);
+        verify(userMapper).countTotal();
+    }
+
+    @Test
+    void listUsers_whenUsersExist_shouldReturnPaginatedResults() {
+        UserPageRequest request = new UserPageRequest();
+        request.setPageNum(1);
+        request.setPageSize(1);
+
+        User user1 = new User();
+        user1.setId(1L);
+        user1.setUsername("user1");
+        user1.setCreatedAt(LocalDateTime.now().minusDays(1));
+        user1.setUpdatedAt(LocalDateTime.now());
+
+        when(userMapper.findAllWithPagination(0, 1)).thenReturn(Arrays.asList(user1));
+        when(userMapper.countTotal()).thenReturn(1L);
+
+        PageResponse<UserVO> response = userService.listUsers(request);
+
+        assertNotNull(response);
+        assertEquals(1, response.getRecords().size());
+        assertEquals(1L, response.getTotal());
+        assertEquals(1, response.getPageNum());
+        assertEquals(1, response.getPageSize());
+        assertEquals("user1", response.getRecords().get(0).getUsername());
+        assertEquals(user1.getId(), response.getRecords().get(0).getId());
+
+        verify(userMapper).findAllWithPagination(0, 1);
+        verify(userMapper).countTotal();
+    }
+
+    // --- Tests for getUserByToken ---
+    @Test
+    void getUserByToken_whenTokenExistsAndValidJson_shouldReturnUser() throws Exception {
+        String token = "valid-token";
+        User expectedUser = new User();
+        expectedUser.setId(1L);
+        expectedUser.setUsername("testuser");
+        // UserServiceImpl creates its own ObjectMapper, so we need to simulate what it would produce
+        ObjectMapper internalMapper = new ObjectMapper();
+        internalMapper.registerModule(new JavaTimeModule());
+        String userJson = internalMapper.writeValueAsString(expectedUser);
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("token:" + token)).thenReturn(userJson);
+
+        User actualUser = userService.getUserByToken(token);
+
+        assertNotNull(actualUser);
+        assertEquals(expectedUser.getId(), actualUser.getId());
+        assertEquals(expectedUser.getUsername(), actualUser.getUsername());
+        verify(valueOperations).get("token:" + token);
+    }
+
+    @Test
+    void getUserByToken_whenTokenNotFoundInRedis_shouldReturnNull() {
+        String token = "non-existent-token";
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("token:" + token)).thenReturn(null);
+
+        User actualUser = userService.getUserByToken(token);
+
+        assertNull(actualUser);
+        verify(valueOperations).get("token:" + token);
+    }
+
+    @Test
+    void getUserByToken_whenRedisThrowsException_shouldReturnNullAndLogError() {
+        String token = "error-token";
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("token:" + token)).thenThrow(new RuntimeException("Redis connection failed"));
+
+        User actualUser = userService.getUserByToken(token);
+
+        assertNull(actualUser);
+        // Verification of logging would require a spy or a custom appender, skip for now if complex
+        verify(valueOperations).get("token:" + token);
+    }
+
+    @Test
+    void getUserByToken_whenInvalidJsonInRedis_shouldReturnNullAndLogError() {
+        String token = "invalid-json-token";
+        String invalidJson = "{\"id\":1, \"username\":\"testuser\","; // Malformed JSON
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("token:" + token)).thenReturn(invalidJson);
+
+        User actualUser = userService.getUserByToken(token);
+
+        assertNull(actualUser);
+        // Verification of logging would require a spy or a custom appender
+        verify(valueOperations).get("token:" + token);
+    }
+
+    // --- Tests for error handling in createLoginResponse (via login method) ---
+    @Test
+    void login_whenRedisSetThrowsException_shouldStillReturnLoginResponseAndLogError() {
+        LoginRequest request = new LoginRequest();
+        request.setUsername(ADMIN_USERNAME);
+        request.setPassword(ADMIN_PASSWORD);
+
+        User existingUser = new User();
+        existingUser.setUsername(ADMIN_USERNAME);
+        when(userMapper.findByUsername(ADMIN_USERNAME)).thenReturn(existingUser);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        // Simulate Redis set operation failing
+        doThrow(new RuntimeException("Redis write failed")).when(valueOperations).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+
+        LoginResponse response = userService.login(request);
+
+        assertNotNull(response, "LoginResponse should not be null even if Redis caching fails");
+        assertNotNull(response.getToken());
+        assertNotNull(response.getExpireTime());
+
+        verify(userMapper).updateUserToken(any(User.class)); // Ensure user update was still attempted
+        verify(valueOperations).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+        // Verification of logging would require a spy or a custom appender
+    }
+
+    // Note: Testing ObjectMapper exceptions from within createLoginResponse is harder
+    // because UserServiceImpl instantiates its own ObjectMapper.
+    // To test that, UserServiceImpl would ideally take ObjectMapper as a dependency.
+    // The current test for getUserByToken_whenInvalidJsonInRedis_shouldReturnNullAndLogError
+    // indirectly tests the readValue failure for getUserByToken.
 } 
