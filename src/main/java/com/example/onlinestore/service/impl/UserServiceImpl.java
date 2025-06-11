@@ -123,9 +123,11 @@ public class UserServiceImpl implements UserService {
         try {
             // 将用户信息转换为JSON并保存到Redis
             String redisKey = TOKEN_PREFIX + token;
+            // String actualTokenForResponse = user.getToken(); // Preserve the original token for the HTTP response. Not strictly needed as 'token' var holds it.
+            user.setToken(null); // Nullify the token field before caching
             String userJson = objectMapper.writeValueAsString(user);
             redisTemplate.opsForValue().set(redisKey, userJson, TOKEN_EXPIRE_DAYS, TimeUnit.DAYS);
-            logger.info("用户信息已缓存到Redis: {}", username);
+            logger.info("用户信息已缓存到Redis (token字段已置空): {}", username);
         } catch (Exception e) {
             logger.error("缓存用户信息失败", e);
             // 继续处理，因为这不是致命错误
