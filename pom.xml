@@ -69,6 +69,12 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
 
+        <!-- Spring Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
         <!-- Jackson JSR310 -->
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>

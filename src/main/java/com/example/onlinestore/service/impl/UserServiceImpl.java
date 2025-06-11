@@ -5,7 +5,9 @@ import com.example.onlinestore.dto.LoginResponse;
 import com.example.onlinestore.dto.PageResponse;
 import com.example.onlinestore.dto.UserPageRequest;
 import com.example.onlinestore.dto.UserVO;
+import com.example.onlinestore.model.Role; // Added import
 import com.example.onlinestore.model.User;
+import com.example.onlinestore.mapper.RoleMapper; // Added import
 import com.example.onlinestore.mapper.UserMapper;
 import com.example.onlinestore.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,9 +47,10 @@ public class UserServiceImpl implements UserService {
     private final StringRedisTemplate redisTemplate;
     private final MessageSource messageSource;
     private final String userServiceBaseUrl;
-    private final CircuitBreakerFactory circuitBreakerFactory; // Added field
+    private final CircuitBreakerFactory circuitBreakerFactory;
+    private final RoleMapper roleMapper; // Added field
 
-    private static final String AUTH_LOGIN_PATH = "/auth/login"; // Changed from /auth to /auth/login
+    private static final String AUTH_LOGIN_PATH = "/auth/login";
     private static final String TOKEN_PREFIX = "token:";
     private static final long TOKEN_EXPIRE_DAYS = 1;
 
@@ -55,7 +58,8 @@ public class UserServiceImpl implements UserService {
     public UserServiceImpl(Environment environment, RestTemplate restTemplate,
                            UserMapper userMapper, StringRedisTemplate redisTemplate,
                            MessageSource messageSource, ObjectMapper objectMapper,
-                           CircuitBreakerFactory circuitBreakerFactory) { // Added circuitBreakerFactory
+                           CircuitBreakerFactory circuitBreakerFactory,
+                           RoleMapper roleMapper) { // Added RoleMapper
         this.objectMapper = objectMapper;
         this.objectMapper.registerModule(new JavaTimeModule());
         this.environment = environment;
@@ -64,7 +68,8 @@ public class UserServiceImpl implements UserService {
         this.redisTemplate = redisTemplate;
         this.messageSource = messageSource;
         this.userServiceBaseUrl = environment.getProperty("service.user.base-url");
-        this.circuitBreakerFactory = circuitBreakerFactory; // Initialize circuitBreakerFactory
+        this.circuitBreakerFactory = circuitBreakerFactory;
+        this.roleMapper = roleMapper; // Initialize RoleMapper
     }
 
     // Helper method to get localized messages
@@ -291,5 +296,43 @@ public class UserServiceImpl implements UserService {
             logger.info("Token deleted from Redis: {}", token);
         }
         // No error is thrown if the token doesn't exist, to prevent information leakage.
+    }
+
+    @Transactional
+    @Override
+    public User assignRoleToUser(Long userId, Long roleId) {
+        User user = userMapper.findById(userId); // Assumes findById exists in UserMapper
+        if (user == null) {
+            throw new IllegalArgumentException(getMessage("error.user.notFound.id", userId));
+        }
+        Role role = roleMapper.findById(roleId);
+        if (role == null) {
+            throw new IllegalArgumentException(getMessage("error.role.notFound.id", roleId));
+        }
+
+        // Consider checking if user already has the role if DB doesn't enforce uniqueness for user_roles
+        // e.g., if (user.getRoles().stream().anyMatch(r -> r.getId().equals(roleId))) { return user; }
+
+        userMapper.insertUserRole(userId, roleId);
+        logger.info("Assigned role id {} to user id {}", roleId, userId);
+
+        return userMapper.findById(userId); // Re-fetch to get updated roles collection
+    }
+
+    @Transactional
+    @Override
+    public User revokeRoleFromUser(Long userId, Long roleId) {
+        User user = userMapper.findById(userId); // Assumes findById exists in UserMapper
+        if (user == null) {
+            throw new IllegalArgumentException(getMessage("error.user.notFound.id", userId));
+        }
+        // Optional: Check if role exists via roleMapper.findById(roleId)
+        // Optional: Check if user actually has the role before attempting delete
+        // e.g., if (user.getRoles() == null || user.getRoles().stream().noneMatch(r -> r.getId().equals(roleId))) { return user; }
+
+        userMapper.deleteUserRole(userId, roleId);
+        logger.info("Revoked role id {} from user id {}", roleId, userId);
+
+        return userMapper.findById(userId); // Re-fetch
     }
 } 

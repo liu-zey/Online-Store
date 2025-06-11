@@ -12,4 +12,8 @@ public interface UserService {
     PageResponse<UserVO> listUsers(UserPageRequest request);
     User getUserByToken(String token);
     void logout(String token);
+
+    User assignRoleToUser(Long userId, Long roleId);
+    User revokeRoleFromUser(Long userId, Long roleId);
+    // Set<Role> getUserRoles(Long userId); // This can be fetched via User.getRoles() if populated by UserMapper
 } 

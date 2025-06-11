@@ -1,28 +1,93 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.example.onlinestore.mapper.UserMapper">
-    
-    <select id="findByUsername" resultType="com.example.onlinestore.model.User">
-        SELECT id, username, token, token_expire_time, created_at, updated_at 
+
+    <!--
+    DDL for 'users' table (for reference):
+    CREATE TABLE IF NOT EXISTS users (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL, -- For Spring Security
+        token VARCHAR(255),               -- For custom token auth, might be refactored
+        token_expire_time TIMESTAMP NULL, -- For custom token auth
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    DDL for 'user_roles' (join table - also referenced in RoleMapper.xml):
+    CREATE TABLE IF NOT EXISTS user_roles (
+        user_id BIGINT NOT NULL,
+        role_id BIGINT NOT NULL,
+        PRIMARY KEY (user_id, role_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+    );
+    -->
+
+    <resultMap id="UserResultMap" type="com.example.onlinestore.model.User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+        <result property="token" column="token"/>
+        <result property="tokenExpireTime" column="token_expire_time" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+        <result property="createdAt" column="created_at" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+        <result property="updatedAt" column="updated_at" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+        <collection property="roles" javaType="java.util.Set" ofType="com.example.onlinestore.model.Role"
+                    select="com.example.onlinestore.mapper.RoleMapper.findRolesByUserId" column="id" fetchType="lazy"/>
+    </resultMap>
+
+    <select id="findById" resultMap="UserResultMap">
+        SELECT id, username, password, token, token_expire_time, created_at, updated_at
+        FROM users
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByUsername" resultMap="UserResultMap">
+        SELECT id, username, password, token, token_expire_time, created_at, updated_at
         FROM users 
         WHERE username = #{username}
     </select>
     
+    <!-- findByToken might be removed if custom token auth is fully replaced by Spring Security JWTs for example -->
+    <select id="findByToken" resultMap="UserResultMap">
+        SELECT id, username, password, token, token_expire_time, created_at, updated_at
+        FROM users
+        WHERE token = #{token}
+    </select>
+
+    <insert id="insertUser" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (username, password, token, token_expire_time, created_at, updated_at)
+        VALUES (#{username}, #{password}, #{token}, #{tokenExpireTime}, #{createdAt}, #{updatedAt})
+    </insert>
+
     <update id="updateUserToken" parameterType="com.example.onlinestore.model.User">
         UPDATE users 
         SET token = #{token}, 
             token_expire_time = #{tokenExpireTime},
             updated_at = #{updatedAt}
-        WHERE username = #{username}
+        WHERE id = #{id} <!-- Changed from username to id for consistency, assuming User object has ID -->
     </update>
 
-    <insert id="insertUser" parameterType="com.example.onlinestore.model.User">
-        INSERT INTO users (username, token, token_expire_time, created_at, updated_at)
-        VALUES (#{username}, #{token}, #{tokenExpireTime}, #{createdAt}, #{updatedAt})
-    </insert>
+    <!-- It's good practice to have a general update method, but ensure password updates are handled carefully. -->
+    <!-- <update id="updateUser" parameterType="com.example.onlinestore.model.User">
+        UPDATE users
+        <set>
+            <if test="username != null">username = #{username},</if>
+            <if test="password != null">password = #{password},</if> -- Handle password hashing in service layer
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+        </set>
+        WHERE id = #{id}
+    </update> -->
     
-    <select id="findAllWithPagination" resultType="com.example.onlinestore.model.User">
-        SELECT id, username, token, token_expire_time, created_at, updated_at
+    <update id="updatePassword" parameterType="com.example.onlinestore.model.User">
+        UPDATE users
+        SET password = #{password},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <select id="findAllWithPagination" resultMap="UserResultMap">
+        SELECT id, username, password, token, token_expire_time, created_at, updated_at
         FROM users
         ORDER BY created_at DESC
         LIMIT #{offset}, #{limit}
@@ -31,4 +96,24 @@
     <select id="countTotal" resultType="long">
         SELECT COUNT(*) FROM users
     </select>
-</mapper> 
+
+    <select id="findAll" resultMap="UserResultMap">
+        SELECT id, username, password, token, token_expire_time, created_at, updated_at
+        FROM users
+        ORDER BY username
+    </select>
+
+    <!-- User-Role Relationships -->
+    <insert id="insertUserRole">
+        INSERT INTO user_roles (user_id, role_id) VALUES (#{userId}, #{roleId})
+    </insert>
+
+    <delete id="deleteUserRole">
+        DELETE FROM user_roles WHERE user_id = #{userId} AND role_id = #{roleId}
+    </delete>
+
+    <delete id="deleteAllRolesForUser">
+        DELETE FROM user_roles WHERE user_id = #{userId}
+    </delete>
+
+</mapper>

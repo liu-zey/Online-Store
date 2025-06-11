@@ -8,6 +8,8 @@ import java.util.List;
 
 @Mapper
 public interface UserMapper {
+
+    User findById(@Param("id") Long id); // Added this method
     
     User findByUsername(String username);
     
@@ -20,4 +22,11 @@ public interface UserMapper {
     long countTotal();
 
     List<User> findAll();
+
+    // Methods for managing user-role relationships
+    void insertUserRole(@Param("userId") Long userId, @Param("roleId") Long roleId);
+
+    void deleteUserRole(@Param("userId") Long userId, @Param("roleId") Long roleId);
+
+    void deleteAllRolesForUser(@Param("userId") Long userId);
 }

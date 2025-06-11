@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.onlinestore.mapper.ProductMapper">
+
+    <!--
+    DDL for 'products' table (for reference):
+    CREATE TABLE IF NOT EXISTS products (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10, 2) NOT NULL,
+        stock_quantity INT DEFAULT 0,
+        sku VARCHAR(100) UNIQUE,
+        category_id BIGINT,
+        status VARCHAR(50) DEFAULT 'DRAFT', -- e.g., DRAFT, ACTIVE, INACTIVE, ARCHIVED
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+    );
+
+    DDL for 'product_images' table (for reference):
+    CREATE TABLE IF NOT EXISTS product_images (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        product_id BIGINT NOT NULL,
+        image_url VARCHAR(2048) NOT NULL,
+        alt_text VARCHAR(255),
+        is_primary BOOLEAN DEFAULT FALSE,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    );
+    -->
+
+    <resultMap id="ProductResultMap" type="com.example.onlinestore.model.Product">
+        <id property="id" column="p_id"/>
+        <result property="name" column="p_name"/>
+        <result property="description" column="p_description"/>
+        <result property="price" column="p_price"/>
+        <result property="stockQuantity" column="p_stock_quantity"/>
+        <result property="sku" column="p_sku"/>
+        <result property="categoryId" column="p_category_id"/>
+        <result property="status" column="p_status"/>
+        <result property="createdAt" column="p_created_at" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+        <result property="updatedAt" column="p_updated_at" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+        <association property="category" javaType="com.example.onlinestore.model.Category" columnPrefix="cat_">
+            <id property="id" column="id"/>
+            <result property="name" column="name"/>
+            <result property="description" column="description"/>
+        </association>
+        <collection property="images" javaType="java.util.Set" ofType="com.example.onlinestore.model.ProductImage"
+                    select="findImagesByProductId" column="p_id" fetchType="lazy"/>
+    </resultMap>
+
+    <resultMap id="ProductImageResultMap" type="com.example.onlinestore.model.ProductImage">
+        <id property="id" column="img_id"/>
+        <result property="productId" column="img_product_id"/>
+        <result property="imageUrl" column="img_image_url"/>
+        <result property="altText" column="img_alt_text"/>
+        <result property="isPrimary" column="img_is_primary"/>
+        <result property="displayOrder" column="img_display_order"/>
+        <result property="createdAt" column="img_created_at" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="productColumns">
+        p.id as p_id, p.name as p_name, p.description as p_description, p.price as p_price,
+        p.stock_quantity as p_stock_quantity, p.sku as p_sku, p.category_id as p_category_id,
+        p.status as p_status, p.created_at as p_created_at, p.updated_at as p_updated_at
+    </sql>
+
+    <sql id="categoryColumns">
+        c.id as cat_id, c.name as cat_name, c.description as cat_description
+    </sql>
+
+    <sql id="productJoins">
+        LEFT JOIN categories c ON p.category_id = c.id
+    </sql>
+
+    <sql id="commonProductConditions">
+        <where>
+            <if test="params != null and params.categoryId != null">
+                AND p.category_id = #{params.categoryId}
+            </if>
+            <if test="params != null and params.status != null and params.status != ''">
+                AND p.status = #{params.status}
+            </if>
+            <if test="params != null and params.minPrice != null">
+                AND p.price &gt;= #{params.minPrice}
+            </if>
+            <if test="params != null and params.maxPrice != null">
+                AND p.price &lt;= #{params.maxPrice}
+            </if>
+            <if test="params != null and params.inStock != null and params.inStock == true">
+                AND p.stock_quantity &gt; 0
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (LOWER(p.name) LIKE LOWER(CONCAT('%', #{keyword}, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', #{keyword}, '%')))
+            </if>
+        </where>
+    </sql>
+
+    <sql id="commonOrderBy">
+        <if test="params != null and params.sortBy != null and params.sortBy != ''">
+            ORDER BY
+            <choose>
+                <when test="params.sortBy == 'price'">p.price</when>
+                <when test="params.sortBy == 'name'">p.name</when>
+                <when test="params.sortBy == 'createdAt'">p.created_at</when>
+                <!-- Add other sortable fields as needed -->
+                <otherwise>p.id</otherwise>
+            </choose>
+            <if test="params.sortOrder != null and (params.sortOrder == 'ASC' or params.sortOrder == 'DESC')">
+                ${params.sortOrder}
+            </if>
+        </if>
+    </sql>
+
+    <select id="findById" resultMap="ProductResultMap">
+        SELECT <include refid="productColumns"/>, <include refid="categoryColumns"/>
+        FROM products p
+        <include refid="productJoins"/>
+        WHERE p.id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="ProductResultMap">
+        SELECT <include refid="productColumns"/>, <include refid="categoryColumns"/>
+        FROM products p
+        <include refid="productJoins"/>
+        <include refid="commonProductConditions"/>
+        <include refid="commonOrderBy"/>
+        <if test="params != null and params.limit != null and params.offset != null">
+          LIMIT #{params.limit} OFFSET #{params.offset}
+        </if>
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(p.id) FROM products p
+        <include refid="commonProductConditions"/>
+    </select>
+
+    <select id="findAvailable" resultMap="ProductResultMap">
+        SELECT <include refid="productColumns"/>, <include refid="categoryColumns"/>
+        FROM products p
+        <include refid="productJoins"/>
+        <where>
+            p.status = 'ACTIVE' AND p.stock_quantity &gt; 0
+            <if test="params != null and params.categoryId != null">
+                AND p.category_id = #{params.categoryId}
+            </if>
+            <if test="params != null and params.minPrice != null">
+                AND p.price &gt;= #{params.minPrice}
+            </if>
+            <if test="params != null and params.maxPrice != null">
+                AND p.price &lt;= #{params.maxPrice}
+            </if>
+        </where>
+        <include refid="commonOrderBy"/>
+        <if test="params != null and params.limit != null and params.offset != null">
+          LIMIT #{params.limit} OFFSET #{params.offset}
+        </if>
+    </select>
+
+    <select id="countAvailable" resultType="int">
+        SELECT COUNT(p.id) FROM products p
+        <where>
+            p.status = 'ACTIVE' AND p.stock_quantity &gt; 0
+             <if test="params != null and params.categoryId != null">
+                AND p.category_id = #{params.categoryId}
+            </if>
+            <if test="params != null and params.minPrice != null">
+                AND p.price &gt;= #{params.minPrice}
+            </if>
+            <if test="params != null and params.maxPrice != null">
+                AND p.price &lt;= #{params.maxPrice}
+            </if>
+        </where>
+    </select>
+
+    <select id="searchAvailable" resultMap="ProductResultMap">
+        SELECT <include refid="productColumns"/>, <include refid="categoryColumns"/>
+        FROM products p
+        <include refid="productJoins"/>
+        <where>
+            p.status = 'ACTIVE' AND p.stock_quantity &gt; 0
+            <if test="keyword != null and keyword != ''">
+                AND (LOWER(p.name) LIKE LOWER(CONCAT('%', #{keyword}, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', #{keyword}, '%')))
+            </if>
+            <if test="params != null and params.categoryId != null">
+                AND p.category_id = #{params.categoryId}
+            </if>
+        </where>
+        <include refid="commonOrderBy"/>
+        <if test="params != null and params.limit != null and params.offset != null">
+          LIMIT #{params.limit} OFFSET #{params.offset}
+        </if>
+    </select>
+
+    <select id="countSearchAvailable" resultType="int">
+        SELECT COUNT(p.id) FROM products p
+         <where>
+            p.status = 'ACTIVE' AND p.stock_quantity &gt; 0
+            <if test="keyword != null and keyword != ''">
+                AND (LOWER(p.name) LIKE LOWER(CONCAT('%', #{keyword}, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', #{keyword}, '%')))
+            </if>
+            <if test="params != null and params.categoryId != null">
+                AND p.category_id = #{params.categoryId}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insertProduct" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO products (name, description, price, stock_quantity, sku, category_id, status, created_at, updated_at)
+        VALUES (#{name}, #{description}, #{price}, #{stockQuantity}, #{sku}, #{categoryId}, #{status}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateProduct">
+        UPDATE products SET
+            name = #{name},
+            description = #{description},
+            price = #{price},
+            stock_quantity = #{stockQuantity},
+            sku = #{sku},
+            category_id = #{categoryId},
+            status = #{status},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStock">
+        UPDATE products SET
+            stock_quantity = #{stockQuantity},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteProduct">
+        DELETE FROM products WHERE id = #{id}
+        <!-- Or for soft delete: UPDATE products SET status = 'ARCHIVED', updated_at = NOW() WHERE id = #{id} -->
+    </delete>
+
+    <!-- ProductImage related SQL -->
+    <insert id="insertProductImage" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO product_images (product_id, image_url, alt_text, is_primary, display_order, created_at)
+        VALUES (#{productId}, #{imageUrl}, #{altText}, #{isPrimary}, #{displayOrder}, #{createdAt})
+    </insert>
+
+    <delete id="deleteProductImagesByProductId">
+        DELETE FROM product_images WHERE product_id = #{productId}
+    </delete>
+
+    <select id="findImagesByProductId" resultMap="ProductImageResultMap">
+        SELECT id as img_id, product_id as img_product_id, image_url as img_image_url,
+               alt_text as img_alt_text, is_primary as img_is_primary,
+               display_order as img_display_order, created_at as img_created_at
+        FROM product_images
+        WHERE product_id = #{productId}
+        ORDER BY display_order ASC, is_primary DESC
+    </select>
+
+</mapper>
