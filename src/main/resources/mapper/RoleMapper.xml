@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.onlinestore.mapper.RoleMapper">
+
+    <!--
+    DDL for 'roles' table (for reference - ensure this table exists in your database):
+    CREATE TABLE IF NOT EXISTS roles (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+    DDL for 'role_permissions' table (join table for roles and permissions):
+    CREATE TABLE IF NOT EXISTS role_permissions (
+        role_id BIGINT NOT NULL,
+        permission_id BIGINT NOT NULL,
+        PRIMARY KEY (role_id, permission_id),
+        FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+        FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+    );
+
+    DDL for 'user_roles' table (join table for users and roles - DDL might be conceptually here or with UserMapper.xml):
+    CREATE TABLE IF NOT EXISTS user_roles (
+        user_id BIGINT NOT NULL,
+        role_id BIGINT NOT NULL,
+        PRIMARY KEY (user_id, role_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+    );
+    -->
+
+    <resultMap id="RoleResultMap" type="com.example.onlinestore.model.Role">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <!-- Collection for permissions associated with a role -->
+        <collection property="permissions" javaType="java.util.Set" ofType="com.example.onlinestore.model.Permission"
+                    select="findPermissionsByRoleId" column="id"/>
+    </resultMap>
+
+    <!-- This PermissionBriefResultMap is not strictly necessary if findPermissionsByRoleId returns full Permission objects
+         and the collection ofType is correctly specified. It's left here for potential alternative mapping strategies.
+    <resultMap id="PermissionBriefResultMap" type="com.example.onlinestore.model.Permission">
+        <id property="id" column="permission_id"/>
+        <result property="name" column="permission_name"/>
+    </resultMap>
+    -->
+
+
+    <select id="findById" resultMap="RoleResultMap">
+        SELECT * FROM roles WHERE id = #{id}
+    </select>
+
+    <select id="findByName" resultMap="RoleResultMap">
+        SELECT * FROM roles WHERE name = #{name}
+    </select>
+
+    <select id="findAll" resultMap="RoleResultMap">
+        SELECT * FROM roles
+    </select>
+
+    <insert id="insertRole" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO roles (name, description, created_at, updated_at)
+        VALUES (#{name}, #{description}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateRole">
+        UPDATE roles SET
+        name = #{name},
+        description = #{description},
+        updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteRole">
+        DELETE FROM roles WHERE id = #{id}
+        <!-- Consider cascading deletes in DB or deleting related role_permissions and user_roles entries here or in service layer -->
+    </delete>
+
+    <!-- Role-Permission Relationships -->
+    <insert id="insertRolePermission">
+        INSERT INTO role_permissions (role_id, permission_id)
+        VALUES (#{roleId}, #{permissionId})
+    </insert>
+
+    <delete id="deleteRolePermission">
+        DELETE FROM role_permissions WHERE role_id = #{roleId} AND permission_id = #{permissionId}
+    </delete>
+
+    <delete id="deleteAllPermissionsForRole">
+        DELETE FROM role_permissions WHERE role_id = #{roleId}
+    </delete>
+
+    <select id="findPermissionsByRoleId" resultType="com.example.onlinestore.model.Permission">
+        SELECT p.id, p.name, p.description, p.created_at, p.updated_at
+        FROM permissions p
+        INNER JOIN role_permissions rp ON p.id = rp.permission_id
+        WHERE rp.role_id = #{roleId}
+    </select>
+
+    <!-- Find roles for a given user -->
+    <select id="findRolesByUserId" resultMap="RoleResultMap">
+        SELECT r.id, r.name, r.description, r.created_at, r.updated_at
+        FROM roles r
+        INNER JOIN user_roles ur ON r.id = ur.role_id
+        WHERE ur.user_id = #{userId}
+    </select>
+
+</mapper>

@@ -42,7 +42,21 @@ service:
   user:
     base-url: http://localhost:8080
 
-admin:
-  auth:
-    username: admin
-    password: password
+# Admin credentials should now be configured via environment variables or Nacos
+# admin:
+#   auth:
+#     username: admin_user_env_or_nacos
+#     password: admin_password_env_or_nacos
+
+resilience4j.circuitbreaker:
+  instances:
+    externalUserService:
+      registerHealthIndicator: true
+      slidingWindowType: COUNT_BASED
+      slidingWindowSize: 10
+      failureRateThreshold: 50
+      slowCallRateThreshold: 50
+      slowCallDurationThreshold: 1000 # 1 second
+      waitDurationInOpenState: 5000 # 5 seconds
+      permittedNumberOfCallsInHalfOpenState: 3
+      automaticTransitionFromOpenToHalfOpenEnabled: true

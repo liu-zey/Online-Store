@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.onlinestore.mapper.PermissionMapper">
+
+    <!--
+    DDL for 'permissions' table (for reference - ensure this table exists in your database):
+    CREATE TABLE IF NOT EXISTS permissions (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE, -- e.g., 'product:create', 'order:view'
+        description VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+    -->
+
+    <resultMap id="PermissionResultMap" type="com.example.onlinestore.model.Permission">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findById" resultMap="PermissionResultMap">
+        SELECT * FROM permissions WHERE id = #{id}
+    </select>
+
+    <select id="findByName" resultMap="PermissionResultMap">
+        SELECT * FROM permissions WHERE name = #{name}
+    </select>
+
+    <select id="findAll" resultMap="PermissionResultMap">
+        SELECT * FROM permissions ORDER BY name
+    </select>
+
+    <insert id="insertPermission" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO permissions (name, description, created_at, updated_at)
+        VALUES (#{name}, #{description}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updatePermission">
+        UPDATE permissions SET
+        name = #{name},
+        description = #{description},
+        updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deletePermission">
+        DELETE FROM permissions WHERE id = #{id}
+        <!-- Consider implications if this permission is currently assigned to roles -->
+        <!-- (e.g., DB foreign key constraints or service layer logic to prevent/handle) -->
+    </delete>
+
+</mapper>

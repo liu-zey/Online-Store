@@ -4,17 +4,20 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException; // Added import
+import jakarta.validation.Validator;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.http.ResponseEntity;
+// MessageSource and ResponseEntity are no longer needed here
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
-import java.util.stream.Collectors;
+// Collectors may not be needed if we don't build detailed message here
 
 /**
  * 参数验证切面
@@ -41,39 +44,31 @@ public class ValidationAspect {
     @Autowired
     private Validator validator;
 
-    @Autowired
-    private MessageSource messageSource;
+    // MessageSource removed as GlobalExceptionHandler will handle message localization if needed based on exception.
 
     /**
      * 验证方法参数的切面方法
      * 
      * @param joinPoint 切点
-     * @return 如果验证通过，返回原方法的执行结果；如果验证失败，返回错误响应
+     * @return 如果验证通过，返回原方法的执行结果；如果验证失败，抛出 ConstraintViolationException
      * @throws Throwable 如果原方法执行时抛出异常
      */
     @Around("@annotation(com.example.onlinestore.annotation.ValidateParams)")
     public Object validateParameters(ProceedingJoinPoint joinPoint) throws Throwable {
         Object[] args = joinPoint.getArgs();
         
-        // 遍历所有参数进行校验
         for (Object arg : args) {
             if (arg != null) {
                 Set<ConstraintViolation<Object>> violations = validator.validate(arg);
                 if (!violations.isEmpty()) {
-                    String errorMessages = violations.stream()
-                        .map(violation -> messageSource.getMessage(
-                            violation.getMessage(), 
-                            null, 
-                            LocaleContextHolder.getLocale()))
-                        .collect(Collectors.joining(", "));
-                    
-                    logger.warn("参数验证失败: {}", errorMessages);
-                    return ResponseEntity.badRequest().body(errorMessages);
+                    // Log the raw violations for detailed backend troubleshooting if necessary
+                    logger.warn("Parameter validation failed for method {} with violations: {}",
+                                joinPoint.getSignature().toShortString(), violations);
+                    throw new ConstraintViolationException(violations); // Throw exception
                 }
             }
         }
         
-        // 校验通过，继续执行原方法
         return joinPoint.proceed();
     }
 } 

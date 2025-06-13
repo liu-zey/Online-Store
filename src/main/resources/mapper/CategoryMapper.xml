@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.onlinestore.mapper.CategoryMapper">
+
+    <!--
+    DDL for 'categories' table (for reference):
+    CREATE TABLE IF NOT EXISTS categories (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        parent_id BIGINT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL -- Or ON DELETE CASCADE, depending on desired behavior
+    );
+    -->
+
+    <resultMap id="CategoryResultMap" type="com.example.onlinestore.model.Category">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="createdAt" column="created_at" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+        <result property="updatedAt" column="updated_at" javaType="java.time.LocalDateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <select id="findById" resultMap="CategoryResultMap">
+        SELECT * FROM categories WHERE id = #{id}
+    </select>
+
+    <select id="findByName" resultMap="CategoryResultMap">
+        SELECT * FROM categories WHERE name = #{name}
+    </select>
+
+    <select id="findAll" resultMap="CategoryResultMap">
+        SELECT * FROM categories ORDER BY name
+    </select>
+
+    <select id="findByParentId" resultMap="CategoryResultMap">
+        SELECT * FROM categories WHERE parent_id = #{parentId} ORDER BY name
+    </select>
+
+    <insert id="insertCategory" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO categories (name, description, parent_id, created_at, updated_at)
+        VALUES (#{name}, #{description}, #{parentId}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="updateCategory">
+        UPDATE categories SET
+            name = #{name},
+            description = #{description},
+            parent_id = #{parentId},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteCategory">
+        DELETE FROM categories WHERE id = #{id}
+        <!-- Consider implications for products in this category (e.g., set product.categoryId to null, or prevent deletion if products exist) -->
+        <!-- Also consider child categories (e.g., set their parent_id to null, or delete them if CASCADE is used) -->
+    </delete>
+
+</mapper>
