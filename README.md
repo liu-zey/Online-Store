@@ -13,7 +13,7 @@
 
 ## 项目结构
 
-```
+```bash
 online-store/
 ├── src/
 │   ├── main/
@@ -48,6 +48,8 @@ online-store/
 ```sql
 CREATE DATABASE online_store DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
+
+
 3. 修改`application.yml`中的数据库和Redis配置
 4. 运行应用程序：
 ```bash
